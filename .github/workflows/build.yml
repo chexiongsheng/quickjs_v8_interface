@@ -12,11 +12,6 @@ jobs:
     - name: Run build script
       run: |
         ./make_osx_qjs.sh
-    - name: Upload
-      uses: actions/upload-artifact@v2
-      with:
-        path: ./macOS/helloworld.exe
-        name: bin 
  
   build_window:
     name: Windows
@@ -34,8 +29,3 @@ jobs:
     - shell: msys2 {0}
       run: |
         ./make_win64_qjs.sh
-    - name: Upload
-      uses: actions/upload-artifact@v2
-      with:
-        path: ./Win64/helloworld
-        name: bin 
