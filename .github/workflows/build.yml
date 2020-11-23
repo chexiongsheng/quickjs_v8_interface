@@ -15,7 +15,7 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        path: ${GITHUB_WORKSPACE}/Win64/helloworld.exe
+        path: ${GITHUB_WORKSPACE}/macOS/helloworld.exe
         name: bin 
  
   build_window:
@@ -37,5 +37,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        path: ${GITHUB_WORKSPACE}/macOS/helloworld
+        path: ${GITHUB_WORKSPACE}/Win64/helloworld
         name: bin 
