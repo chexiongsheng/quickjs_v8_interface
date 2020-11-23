@@ -27,7 +27,7 @@ jobs:
       run: |
         echo "#! /bin/sh" > /mingw64/bin/make
         echo "\"mingw32-make\" \"\$@\"" >> /mingw64/bin/make
-    - shell: msys2 {0}
+    - name: Build
       run: |
         .\make_win64_qjs.bat
 
