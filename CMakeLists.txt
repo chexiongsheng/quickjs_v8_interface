@@ -58,24 +58,7 @@ add_executable(helloworld ${SRC})
 
 
 
-if ( WIN32 OR MSYS OR CYGWIN )
-    if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
-        target_link_libraries(hello-world
-            ${JS_ENGINE_ROOT}/Lib/Win32/${LIB_NAME}.lib
-            winmm.lib
-            dbghelp.lib
-            shlwapi.lib
-        )
-    else ()
-        target_link_libraries(helloworld
-            ${JS_ENGINE_ROOT}/Lib/Win64/${LIB_NAME}.lib
-            winmm.lib
-            dbghelp.lib
-            shlwapi.lib
-        )
-    endif ()
-    target_compile_definitions (helloworld PRIVATE PLATFORM_WINDOWS)
-elseif ( ANDROID )
+if ( ANDROID )
     find_library(log-lib log )
 
     if( ANDROID_ABI STREQUAL "armeabi-v7a")
@@ -103,4 +86,21 @@ elseif ( APPLE )
         )
         target_compile_definitions (helloworld PRIVATE PLATFORM_MAC)
     endif ( )
+else ()
+    if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
+        target_link_libraries(hello-world
+            ${JS_ENGINE_ROOT}/Lib/Win32/${LIB_NAME}.lib
+            winmm.lib
+            dbghelp.lib
+            shlwapi.lib
+        )
+    else ()
+        target_link_libraries(helloworld
+            ${JS_ENGINE_ROOT}/Lib/Win64/${LIB_NAME}.lib
+            winmm.lib
+            dbghelp.lib
+            shlwapi.lib
+        )
+    endif ()
+    target_compile_definitions (helloworld PRIVATE PLATFORM_WINDOWS)
 endif ( )
