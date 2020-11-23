@@ -58,7 +58,7 @@ add_executable(helloworld ${SRC})
 
 
 
-if ( WIN32 )
+if ( WIN32 OR MSYS )
     if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
         target_link_libraries(hello-world
             ${JS_ENGINE_ROOT}/Lib/Win32/${LIB_NAME}.lib
