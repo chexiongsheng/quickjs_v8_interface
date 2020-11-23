@@ -87,19 +87,18 @@ elseif ( APPLE )
         target_compile_definitions (helloworld PRIVATE PLATFORM_MAC)
     endif ( )
 else ()
+    if ( JS_ENGINE STREQUAL "v8")
+        set(LIBS_NEEDED winmm.lib dbghelp.lib shlwapi.lib)
+    endif()
     if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
         target_link_libraries(hello-world
             ${JS_ENGINE_ROOT}/Lib/Win32/${LIB_NAME}.lib
-            winmm.lib
-            dbghelp.lib
-            shlwapi.lib
+            ${LIBS_NEEDED}
         )
     else ()
         target_link_libraries(helloworld
             ${JS_ENGINE_ROOT}/Lib/Win64/${LIB_NAME}.lib
-            winmm.lib
-            dbghelp.lib
-            shlwapi.lib
+            ${LIBS_NEEDED}
         )
     endif ()
     target_compile_definitions (helloworld PRIVATE PLATFORM_WINDOWS)
