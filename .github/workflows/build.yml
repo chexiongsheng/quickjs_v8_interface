@@ -15,7 +15,7 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        path: build_qjs/**/*.exe
+        path: ./**/*.exe
         name: bin 
  
   build_window:
@@ -37,5 +37,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        path: build_qjs/**/helloworld
+        path: ./**/helloworld
         name: bin 
