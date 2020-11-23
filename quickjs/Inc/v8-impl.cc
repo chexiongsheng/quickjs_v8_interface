@@ -1,4 +1,5 @@
 #include "v8.h"
+#include<cstring>
 
 namespace v8 {
 namespace platform {
