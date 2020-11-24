@@ -17,9 +17,8 @@
 #include "v8config.h"     // NOLINT(build/include_directory)
 #include "quickjs.h"
 
-/**
- * The v8 JavaScript engine.
- */
+#define JS_TAG_EXTERNAL (JS_TAG_FLOAT64 + 1)
+
 namespace v8 {
 class Object;
 class Isolate;
@@ -291,6 +290,14 @@ public:
     //  Data();
 };
 
+typedef union ValueStore {
+    JSValue value_;
+    struct {
+        char* data_;
+        size_t len_;
+    } str_;
+} ValueStore;
+
 class V8_EXPORT Value : public Data {
 public:
     V8_WARN_UNUSED_RESULT Maybe<uint32_t> Uint32Value(Local<Context> context) const {
@@ -302,13 +309,7 @@ public:
         }
     }
 
-    union {
-        JSValue value_;
-        struct {
-            char* data_;
-            size_t len_;
-        } str_;
-    } u_;
+    ValueStore u_;
     
     bool jsValue_ = true;
     
@@ -392,8 +393,11 @@ public:
         return Local<Context>(new Context(isolate));
     }
 
-    //Local<Object> Global() {
-    //}
+    Local<Object> Global() {
+        Object* obj = new Object();
+        obj->u_.value_ = JS_GetGlobalObject(context_);
+        return Local<Object>(obj);
+    }
 
     V8_INLINE Isolate* GetIsolate() { return isolate_; }
 
@@ -422,10 +426,75 @@ public:
 
     V8_INLINE Context(Isolate* isolate) :isolate_(isolate) {
         context_ = JS_NewContext(isolate->runtime_);
+        JS_SetContextOpaque(context_, isolate);
     }
 };
 
+
+class V8_EXPORT External : public Value {
+public:
+    static Local<External> New(Isolate* isolate, void* value);
+    V8_INLINE static External* Cast(Value* obj);
+    void* Value() const;
+};
+
 class V8_EXPORT Primitive : public Value { };
+
+class V8_EXPORT Number : public Primitive {
+public:
+    V8_INLINE double Value() const {
+        return JS_VALUE_GET_FLOAT64(u_.value_);
+    }
+    V8_INLINE static Local<Number> New(Isolate* isolate, double value) {
+        Number* ret = new Number();
+        ret->u_.value_ = JS_NewFloat64(isolate->GetCurrentContext()->context_, value);
+        return Local<Number>(ret);
+    }
+    V8_INLINE static Number* Cast(v8::Value* obj) {
+        return static_cast<Number*>(obj);
+    }
+};
+
+class V8_EXPORT Integer : public Number {
+public:
+    V8_INLINE static Local<Integer> New(Isolate* isolate, int32_t value) {
+        Integer* ret = new Integer();
+        ret->u_.value_ = JS_MKVAL(JS_TAG_INT, value);
+        return Local<Integer>(ret);
+    }
+    V8_INLINE static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value) {
+        Integer* ret = new Integer();
+        ret->u_.value_ = JS_NewUint32(isolate->GetCurrentContext()->context_, value);;
+        return Local<Integer>(ret);
+    }
+    int64_t Value() const {
+        if (JS_VALUE_GET_TAG(u_.value_) == JS_TAG_INT) {
+            return JS_VALUE_GET_INT(u_.value_);
+        } else if (JS_VALUE_GET_TAG(u_.value_) == JS_TAG_FLOAT64) {
+            return (int64_t)JS_VALUE_GET_FLOAT64(u_.value_);
+        } else {
+            return 0;
+        }
+    }
+    V8_INLINE static Integer* Cast(v8::Value* obj) {
+        return static_cast<Integer*>(obj);
+    }
+};
+
+class V8_EXPORT Boolean : public Primitive {
+public:
+    V8_INLINE bool Value() const {
+        return JS_VALUE_GET_BOOL(u_.value_);
+    }
+    V8_INLINE static Boolean* Cast(v8::Value* obj) {
+        return static_cast<Boolean*>(obj);
+    }
+    V8_INLINE static Local<Boolean> New(Isolate* isolate, bool value) {
+        Boolean* ret = new Boolean();
+        ret->u_.value_ = JS_MKVAL(JS_TAG_BOOL, (value != 0));
+        return Local<Boolean>(ret);
+    }
+};
 
 class V8_EXPORT Name : public Primitive {
 public:
@@ -520,6 +589,101 @@ public:
 private:
 };
 
+template<typename T>
+class ReturnValue {
+public:
+    //template <class S> V8_INLINE ReturnValue(const ReturnValue<S>& that)
+    //  : value_(that.value_) {
+    //    static_assert(std::is_base_of<T, S>::value, "type check");
+    //}
+    // Local setters
+    //template <typename S>
+    //V8_INLINE void Set(const Global<S>& handle);
+    //template <typename S>
+    //V8_INLINE void Set(const TracedReferenceBase<S>& handle);
+    template <typename S>
+    V8_INLINE void Set(const Local<S> handle);
+    // Fast primitive setters
+    V8_INLINE void Set(bool value);
+    V8_INLINE void Set(double i);
+    V8_INLINE void Set(int32_t i);
+    V8_INLINE void Set(uint32_t i);
+    // Fast JS primitive setters
+    V8_INLINE void SetNull();
+    V8_INLINE void SetUndefined();
+    V8_INLINE void SetEmptyString();
+
+    // Pointer setter: Uncompilable to prevent inadvertent misuse.
+    template <typename S>
+    V8_INLINE void Set(S* whatever);
+    
+    V8_INLINE ReturnValue(JSContext* context, JSValue* pvalue)
+       :context_(context), pvalue_(pvalue) { }
+    
+    JSContext* context_;
+    
+    JSValue* pvalue_;
+};
+
+template<typename T>
+class FunctionCallbackInfo {
+public:
+    V8_INLINE int Length() const;
+    
+    V8_INLINE Local<Value> operator[](int i) const;
+    
+    V8_INLINE Local<Object> This() const {
+        Object* obj = new Object();
+        obj->u_.value_ = this_;
+        return Local<Object>(obj);
+    }
+    
+    //quickjs没有类似的机制S
+    V8_INLINE Local<Object> Holder() const {
+        return This();
+    }
+    
+    //TODO: quickjs有没类似的机制呢？JS_IsConstructor??
+    V8_INLINE bool IsConstructCall() const {
+        return true;
+    }
+    
+    V8_INLINE Local<Value> Data() const {
+        Value* obj = new Value();
+        obj->u_.value_ = data_;
+        return Local<Value>(obj);
+    }
+    
+    V8_INLINE Isolate* GetIsolate() const {
+        return isolate_;
+    }
+    
+    V8_INLINE ReturnValue<T> GetReturnValue() const {
+        return ReturnValue<T>(context_, &value_);
+    }
+
+    int argc_;
+    JSValueConst *argv_;
+    JSValue value_;
+    JSContext* context_;
+    JSValueConst this_;
+    Isolate * isolate_;
+    JSValueConst data_;
+};
+
+class V8_EXPORT Template : public Data {
+public:
+};
+
+typedef void (*FunctionCallback)(const FunctionCallbackInfo<Value>& info);
+
+class V8_EXPORT FunctionTemplate : public Template {
+public:
+ static Local<FunctionTemplate> New(
+     Isolate* isolate, FunctionCallback callback = nullptr,
+     Local<Value> data = Local<Value>());
+};
+
 class ScriptOrigin {
 public:
     V8_INLINE ScriptOrigin(
@@ -565,6 +729,72 @@ private:
     MaybeLocal<String> resource_name_;
 };
 
+template <typename T>
+template <typename S>
+void ReturnValue<T>::Set(const Local<S> handle) {
+    static_assert(std::is_void<T>::value || std::is_base_of<T, S>::value,
+                "type check");
+    if (V8_UNLIKELY(handle.IsEmpty())) {
+        SetUndefined();
+    } else if (handle->jsValue_) {
+        *pvalue_ = handle->u_.value_;
+    } else {
+        *pvalue_ = JS_NewStringLen(context_, handle->u_.str_, handle->u_.len_);
+    }
+}
+
+template<typename T>
+void ReturnValue<T>::Set(double i) {
+    static_assert(std::is_base_of<T, Number>::value, "type check");
+    *pvalue_ = JS_NewFloat64(context_, i);
+    
+}
+
+template<typename T>
+void ReturnValue<T>::Set(int32_t i) {
+    static_assert(std::is_base_of<T, Integer>::value, "type check");
+    *pvalue_ = JS_NewInt32(context_, i);
+}
+
+template<typename T>
+void ReturnValue<T>::Set(uint32_t i) {
+    static_assert(std::is_base_of<T, Integer>::value, "type check");
+    *pvalue_ = JS_NewUint32(context_, i);
+}
+
+template<typename T>
+void ReturnValue<T>::Set(bool value) {
+    static_assert(std::is_base_of<T, Boolean>::value, "type check");
+    if (value) {
+        *pvalue_ = JS_TRUE;
+    } else {
+        *pvalue_ = JS_FALSE;
+    }
+}
+
+template<typename T>
+void ReturnValue<T>::SetNull() {
+    static_assert(std::is_base_of<T, Primitive>::value, "type check");
+    *pvalue_ = JS_NULL;
+}
+
+template<typename T>
+void ReturnValue<T>::SetUndefined() {
+    static_assert(std::is_base_of<T, Primitive>::value, "type check");
+    *pvalue_ = JS_UNDEFINED;
+}
+
+template <typename T>
+template <typename S>
+void ReturnValue<T>::Set(S* whatever) {
+    static_assert(sizeof(S) < 0, "incompilable to prevent inadvertent misuse");
+}
+
+template<typename T>
+Local<Value> FunctionCallbackInfo<T>::operator[](int i) const {
+  //if (i < 0 || argc_ <= i) return Local<Value>(*Undefined(GetIsolate()));
+  //return Local<Value>(reinterpret_cast<Value*>(values_ + i));
+}
 
 }  // namespace v8
 

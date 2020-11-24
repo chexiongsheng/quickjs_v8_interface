@@ -60,4 +60,18 @@ Script::~Script() {
     //}
 }
 
+Local<External> External::New(Isolate* isolate, void* value) {
+    External* external = new External();
+    external->u_.value_ = JS_MKPTR(JS_TAG_EXTERNAL, value);
+    return Local<External>(external);
+}
+
+External* External::Cast(class Value* obj) {
+    return static_cast<External*>(obj);
+}
+
+void* External::Value() const {
+    return JS_VALUE_GET_PTR(u_.value_);
+}
+
 }  // namespace v8

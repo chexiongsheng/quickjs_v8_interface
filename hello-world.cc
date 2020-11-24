@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
 
 #include "libplatform/libplatform.h"
 #include "v8.h"
@@ -26,6 +27,21 @@
 #elif defined(PLATFORM_IOS)
 #include "Blob/iOS/arm64/SnapshotBlob.h"
 #endif
+
+/*static void Add(const v8::FunctionCallbackInfo<v8::Value>& info) {
+    v8::Isolate* Isolate = info.GetIsolate();
+    v8::Isolate::Scope IsolateScope(Isolate);
+    v8::HandleScope HandleScope(Isolate);
+    v8::Local<v8::Context> Context = Isolate->GetCurrentContext();
+    v8::Context::Scope ContextScope(Context);
+
+    const char* msg = reinterpret_cast<const char*>((v8::Local<v8::External>::Cast(info.Data()))->Value());
+    int32_t a = info[0]->Int32Value(Context).ToChecked();
+    int32_t b = info[1]->Int32Value(Context).ToChecked();
+    std::cout << "(" << a << "+" << b << "), msg:" << msg << std::endl;
+
+    info.GetReturnValue().Set(a + b);
+}*/
 
 int main(int argc, char* argv[]) {
     // Initialize V8.
@@ -51,6 +67,11 @@ int main(int argc, char* argv[]) {
 
         // Create a new context.
         v8::Local<v8::Context> context = v8::Context::New(isolate);
+
+        auto external = v8::External::New(isolate, (void *)"ExternalInfo...");
+        //context->Global()->Set(context, v8::String::NewFromUtf8(isolate, "g_add").ToLocalChecked(),
+        //    v8::FunctionTemplate::New(isolate, Add, external)->GetFunction(context).ToLocalChecked())
+        //    .Check();
 
         // Enter the context for compiling and running the hello world script.
         v8::Context::Scope context_scope(context);
@@ -107,6 +128,28 @@ int main(int argc, char* argv[]) {
             uint32_t number = result->Uint32Value(context).ToChecked();
             printf("3 + 4 = %u\n", number);
         }
+
+        /*{
+            const char* csource = R"(
+                g_add(5, 6);
+              )";
+
+            // Create a string containing the JavaScript source code.
+            v8::Local<v8::String> source =
+                v8::String::NewFromUtf8(isolate, csource, v8::NewStringType::kNormal)
+                .ToLocalChecked();
+
+            // Compile the source code.
+            v8::Local<v8::Script> script =
+                v8::Script::Compile(context, source).ToLocalChecked();
+
+            // Run the script to get the result.
+            v8::Local<v8::Value> result = script->Run(context).ToLocalChecked();
+
+            // Convert the result to a uint32 and print it.
+            uint32_t number = result->Uint32Value(context).ToChecked();
+            printf("g_add(5, 6) = %u\n", number);
+        }*/
     }
 
     // Dispose the isolate and tear down V8.
