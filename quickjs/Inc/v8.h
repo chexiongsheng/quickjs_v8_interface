@@ -25,6 +25,7 @@ class Isolate;
 class Context;
 template <class T>
 class MaybeLocal;
+class FunctionTemplate;
 
 class V8_EXPORT StartupData {
 public:
@@ -454,6 +455,10 @@ public:
     V8_INLINE Local<Context> GetCurrentContext() {
         return current_context_;
     }
+    
+    int RegFunctionTemplate(Local<FunctionTemplate> data);
+    
+    Local<FunctionTemplate>& GetFunctionTemplate(int index);
 
 private:
     friend class Context;
@@ -461,6 +466,8 @@ private:
     JSRuntime *runtime_;
 
     Local<Context> current_context_;
+    
+    std::vector<Local<FunctionTemplate>> function_templates_;
 
     V8_INLINE Isolate() : current_context_(nullptr) {
         runtime_ = JS_NewRuntime();
@@ -735,9 +742,7 @@ public:
     }
     
     V8_INLINE Local<Value> Data() const {
-        Value* obj = new Value();
-        obj->u_.value_ = data_;
-        return Local<Value>(obj);
+        return isolate_->GetFunctionTemplate(magic_)->data_;
     }
     
     V8_INLINE Isolate* GetIsolate() const {
@@ -754,7 +759,11 @@ public:
     JSContext* context_;
     JSValueConst this_;
     Isolate * isolate_;
-    JSValueConst data_;
+    int magic_;
+};
+
+class V8_EXPORT Function : public Object {
+public:
 };
 
 class V8_EXPORT Template : public Data {
@@ -765,9 +774,16 @@ typedef void (*FunctionCallback)(const FunctionCallbackInfo<Value>& info);
 
 class V8_EXPORT FunctionTemplate : public Template {
 public:
- static Local<FunctionTemplate> New(
-     Isolate* isolate, FunctionCallback callback = nullptr,
-     Local<Value> data = Local<Value>());
+    static Local<FunctionTemplate> New(
+        Isolate* isolate, FunctionCallback callback = nullptr,
+        Local<Value> data = Local<Value>());
+    
+    V8_WARN_UNUSED_RESULT MaybeLocal<Function> GetFunction(
+        Local<Context> context);
+
+    int magic_;
+    FunctionCallback callback_;
+    Local<Value> data_;
 };
 
 class ScriptOrigin {
@@ -878,8 +894,13 @@ void ReturnValue<T>::Set(S* whatever) {
 
 template<typename T>
 Local<Value> FunctionCallbackInfo<T>::operator[](int i) const {
-  //if (i < 0 || argc_ <= i) return Local<Value>(*Undefined(GetIsolate()));
-  //return Local<Value>(reinterpret_cast<Value*>(values_ + i));
+    JSValue jsVal = JS_UNDEFINED;
+    if (i >=0 && i < argc_) {
+        jsVal = argv_[i];
+    }
+    Value* ret = new Value();
+    ret->u_.value_ = jsVal;
+    return Local<Value>(ret);
 }
 
 }  // namespace v8
