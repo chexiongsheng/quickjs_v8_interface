@@ -66,10 +66,6 @@ Local<External> External::New(Isolate* isolate, void* value) {
     return Local<External>(external);
 }
 
-External* External::Cast(class Value* obj) {
-    return static_cast<External*>(obj);
-}
-
 void* External::Value() const {
     return JS_VALUE_GET_PTR(u_.value_);
 }

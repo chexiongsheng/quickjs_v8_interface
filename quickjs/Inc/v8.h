@@ -315,6 +315,21 @@ public:
         }
     }
     
+    V8_WARN_UNUSED_RESULT Maybe<int32_t> Int32Value(Local<Context> context) const {
+        if (jsValue_) {
+            int tag = JS_VALUE_GET_TAG(u_.value_);
+            if (tag == JS_TAG_INT) {
+                return Maybe<int32_t>((int32_t)JS_VALUE_GET_INT(u_.value_));
+            }
+            else {
+                return Maybe<int32_t>((int32_t)JS_VALUE_GET_FLOAT64(u_.value_));
+            }
+        }
+        else {
+            return Maybe<int32_t>();
+        }
+    }
+    
     V8_INLINE bool IsUndefined() const {
         return jsValue_ && JS_IsUndefined(u_.value_);
     }
@@ -503,7 +518,9 @@ public:
 class V8_EXPORT External : public Value {
 public:
     static Local<External> New(Isolate* isolate, void* value);
-    V8_INLINE static External* Cast(Value* obj);
+    V8_INLINE static External* Cast(Value* obj) {
+        return static_cast<External*>(obj);
+    }
     void* Value() const;
 };
 
@@ -728,7 +745,7 @@ public:
     }
     
     V8_INLINE ReturnValue<T> GetReturnValue() const {
-        return ReturnValue<T>(context_, &value_);
+        return ReturnValue<T>(context_, const_cast<JSValue*>(&value_));
     }
 
     int argc_;

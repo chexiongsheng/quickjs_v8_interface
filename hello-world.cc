@@ -28,7 +28,7 @@
 #include "Blob/iOS/arm64/SnapshotBlob.h"
 #endif
 
-/*static void Add(const v8::FunctionCallbackInfo<v8::Value>& info) {
+static void Add(const v8::FunctionCallbackInfo<v8::Value>& info) {
     v8::Isolate* Isolate = info.GetIsolate();
     v8::Isolate::Scope IsolateScope(Isolate);
     v8::HandleScope HandleScope(Isolate);
@@ -41,7 +41,7 @@
     std::cout << "(" << a << "+" << b << "), msg:" << msg << std::endl;
 
     info.GetReturnValue().Set(a + b);
-}*/
+}
 
 int main(int argc, char* argv[]) {
     // Initialize V8.
@@ -132,6 +132,7 @@ int main(int argc, char* argv[]) {
 
         {
             const char* csource = R"(
+                //g_add(5, 6);
                 g_number;
               )";
 
