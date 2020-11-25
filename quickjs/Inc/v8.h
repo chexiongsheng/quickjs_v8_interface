@@ -301,12 +301,78 @@ typedef union ValueStore {
 class V8_EXPORT Value : public Data {
 public:
     V8_WARN_UNUSED_RESULT Maybe<uint32_t> Uint32Value(Local<Context> context) const {
-        if (jsValue_ && JS_IsNumber(u_.value_)) {
-            return Maybe<uint32_t>((uint32_t)JS_VALUE_GET_INT(u_.value_));
+        if (jsValue_) {
+            int tag = JS_VALUE_GET_TAG(u_.value_);
+            if (tag == JS_TAG_INT) {
+                return Maybe<uint32_t>((uint32_t)JS_VALUE_GET_INT(u_.value_));
+            }
+            else {
+                return Maybe<uint32_t>((uint32_t)JS_VALUE_GET_FLOAT64(u_.value_));
+            }
         }
         else {
             return Maybe<uint32_t>();
         }
+    }
+    
+    V8_INLINE bool IsUndefined() const {
+        return jsValue_ && JS_IsUndefined(u_.value_);
+    }
+
+    V8_INLINE bool IsNull() const {
+        return jsValue_ && JS_IsNull(u_.value_);
+    }
+
+    V8_INLINE bool IsNullOrUndefined() const {
+        return jsValue_ && (JS_IsUndefined(u_.value_) || JS_IsNull(u_.value_));
+    }
+
+    V8_INLINE bool IsString() const {
+        return !jsValue_ || JS_IsString(u_.value_);
+    }
+
+    V8_INLINE bool IsSymbol() const {
+        return jsValue_ && JS_IsSymbol(u_.value_);
+    }
+
+    //TODO: 哪里搞ctx？
+    //V8_INLINE bool IsFunction() const {
+        //return jsValue_ && JS_IsFunction(<#JSContext *ctx#>, <#JSValue val#>)
+        //if (!jsValue_) return false;
+        //if (JS_VALUE_GET_TAG(u_.value_) != JS_TAG_OBJECT)
+        //    return false;
+        //JSObject *p = JS_VALUE_GET_OBJ(u_.value_);
+        //return p->class_id
+    //}
+    
+    //似乎得对quickjs进行一定的改造S
+    //V8_INLINE bool IsArrayBuffer() const {
+    //}
+    
+    //V8_INLINE bool IsArrayBufferView() const {
+    //}
+    
+    //V8_INLINE bool IsDate() const {
+    //}
+
+    V8_INLINE bool IsObject() const {
+        return jsValue_ && JS_IsObject(u_.value_);
+    }
+
+    V8_INLINE bool IsBigInt() const {
+        return jsValue_ && JS_VALUE_GET_TAG(u_.value_) == JS_TAG_BIG_INT;
+    }
+
+    V8_INLINE bool IsBoolean() const {
+        return jsValue_ && JS_IsBool(u_.value_);
+    }
+
+    V8_INLINE bool IsNumber() const {
+        return jsValue_ && JS_IsNumber(u_.value_);
+    }
+
+    V8_INLINE bool IsExternal() const {
+        return jsValue_ && JS_VALUE_GET_TAG(u_.value_) == JS_TAG_EXTERNAL;
     }
 
     ValueStore u_;
@@ -321,6 +387,9 @@ public:
 };
 
 class V8_EXPORT Object : public Value {
+public:
+    V8_WARN_UNUSED_RESULT Maybe<bool> Set(Local<Context> context,
+        Local<Value> key, Local<Value> value);
 };
 
 class V8_EXPORT ArrayBuffer : public Object {

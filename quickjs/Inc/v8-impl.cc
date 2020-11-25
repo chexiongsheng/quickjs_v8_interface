@@ -74,4 +74,25 @@ void* External::Value() const {
     return JS_VALUE_GET_PTR(u_.value_);
 }
 
+Maybe<bool> Object::Set(Local<Context> context,
+                        Local<Value> key, Local<Value> value) {
+    JSValue jsValue;
+    if (value->jsValue_) {
+        jsValue = value->u_.value_;
+    } else {
+        jsValue = JS_NewStringLen(context->context_, value->u_.str_.data_, value->u_.str_.len_);
+    }
+    if (!key->jsValue_) {
+        JS_SetPropertyStr(context->context_, u_.value_, key->u_.str_.data_, jsValue);
+    } else {
+        if (key->IsNumber()) {
+            JS_SetPropertyUint32(context->context_, u_.value_, key->Uint32Value(context).ToChecked(), jsValue);
+        } else {
+            JS_SetProperty(context->context_, u_.value_, JS_ValueToAtom(context->context_, key->u_.value_), jsValue);
+        }
+    }
+    
+    return Maybe<bool>(true);
+}
+
 }  // namespace v8

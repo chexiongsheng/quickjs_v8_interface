@@ -68,13 +68,14 @@ int main(int argc, char* argv[]) {
         // Create a new context.
         v8::Local<v8::Context> context = v8::Context::New(isolate);
 
+        // Enter the context for compiling and running the hello world script.
+        v8::Context::Scope context_scope(context);
+        
         auto external = v8::External::New(isolate, (void *)"ExternalInfo...");
+        context->Global()->Set(context, v8::String::NewFromUtf8(isolate, "g_number").ToLocalChecked(), v8::Number::New(isolate, 1999.99)).Check();
         //context->Global()->Set(context, v8::String::NewFromUtf8(isolate, "g_add").ToLocalChecked(),
         //    v8::FunctionTemplate::New(isolate, Add, external)->GetFunction(context).ToLocalChecked())
         //    .Check();
-
-        // Enter the context for compiling and running the hello world script.
-        v8::Context::Scope context_scope(context);
 
         {
             // Create a string containing the JavaScript source code.
@@ -129,9 +130,9 @@ int main(int argc, char* argv[]) {
             printf("3 + 4 = %u\n", number);
         }
 
-        /*{
+        {
             const char* csource = R"(
-                g_add(5, 6);
+                g_number;
               )";
 
             // Create a string containing the JavaScript source code.
@@ -149,7 +150,7 @@ int main(int argc, char* argv[]) {
             // Convert the result to a uint32 and print it.
             uint32_t number = result->Uint32Value(context).ToChecked();
             printf("g_add(5, 6) = %u\n", number);
-        }*/
+        }
     }
 
     // Dispose the isolate and tear down V8.
