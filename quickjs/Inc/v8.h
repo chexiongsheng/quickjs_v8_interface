@@ -15,7 +15,36 @@
 #include "libplatform/libplatform.h"
 
 #include "v8config.h"     // NOLINT(build/include_directory)
-#include "quickjs.h"
+
+#ifndef JSValueConst
+typedef union JSValueUnion {
+    int32_t int32;
+    double float64;
+    void *ptr;
+} JSValueUnion;
+
+typedef struct JSValue {
+    JSValueUnion u;
+    int64_t tag;
+} JSValue;
+
+typedef struct JSRuntime JSRuntime;
+typedef struct JSContext JSContext;
+typedef struct JSObject JSObject;
+typedef struct JSClass JSClass;
+
+#define JSValueConst JSValue
+#endif
+
+//wrap
+JSValue JS_NewFloat64_(JSContext *ctx, double d);
+JSValue JS_NewStringLen_(JSContext *ctx, const char *str1, size_t len1);
+JSValue JS_NewInt32_(JSContext *ctx, int32_t val);
+JSValue JS_NewUint32_(JSContext *ctx, uint32_t val);
+JSValue JS_True();
+JSValue JS_False();
+JSValue JS_Null();
+JSValue JS_Undefined();
 
 #define JS_TAG_EXTERNAL (JS_TAG_FLOAT64 + 1)
 
@@ -301,95 +330,38 @@ typedef union ValueStore {
 
 class V8_EXPORT Value : public Data {
 public:
-    V8_WARN_UNUSED_RESULT Maybe<uint32_t> Uint32Value(Local<Context> context) const {
-        if (jsValue_) {
-            int tag = JS_VALUE_GET_TAG(u_.value_);
-            if (tag == JS_TAG_INT) {
-                return Maybe<uint32_t>((uint32_t)JS_VALUE_GET_INT(u_.value_));
-            }
-            else {
-                return Maybe<uint32_t>((uint32_t)JS_VALUE_GET_FLOAT64(u_.value_));
-            }
-        }
-        else {
-            return Maybe<uint32_t>();
-        }
-    }
+    V8_WARN_UNUSED_RESULT Maybe<uint32_t> Uint32Value(Local<Context> context) const ;
     
-    V8_WARN_UNUSED_RESULT Maybe<int32_t> Int32Value(Local<Context> context) const {
-        if (jsValue_) {
-            int tag = JS_VALUE_GET_TAG(u_.value_);
-            if (tag == JS_TAG_INT) {
-                return Maybe<int32_t>((int32_t)JS_VALUE_GET_INT(u_.value_));
-            }
-            else {
-                return Maybe<int32_t>((int32_t)JS_VALUE_GET_FLOAT64(u_.value_));
-            }
-        }
-        else {
-            return Maybe<int32_t>();
-        }
-    }
+    V8_WARN_UNUSED_RESULT Maybe<int32_t> Int32Value(Local<Context> context) const;
     
-    V8_INLINE bool IsUndefined() const {
-        return jsValue_ && JS_IsUndefined(u_.value_);
-    }
+    bool IsUndefined() const;
+    
+    bool IsNull() const;
 
-    V8_INLINE bool IsNull() const {
-        return jsValue_ && JS_IsNull(u_.value_);
-    }
+    bool IsNullOrUndefined() const;
 
-    V8_INLINE bool IsNullOrUndefined() const {
-        return jsValue_ && (JS_IsUndefined(u_.value_) || JS_IsNull(u_.value_));
-    }
+    bool IsString() const;
 
-    V8_INLINE bool IsString() const {
-        return !jsValue_ || JS_IsString(u_.value_);
-    }
+    bool IsSymbol() const;
 
-    V8_INLINE bool IsSymbol() const {
-        return jsValue_ && JS_IsSymbol(u_.value_);
-    }
-
-    //TODO: 哪里搞ctx？
-    //V8_INLINE bool IsFunction() const {
-        //return jsValue_ && JS_IsFunction(<#JSContext *ctx#>, <#JSValue val#>)
-        //if (!jsValue_) return false;
-        //if (JS_VALUE_GET_TAG(u_.value_) != JS_TAG_OBJECT)
-        //    return false;
-        //JSObject *p = JS_VALUE_GET_OBJ(u_.value_);
-        //return p->class_id
-    //}
+    //bool IsFunction() const;
     
     //似乎得对quickjs进行一定的改造S
-    //V8_INLINE bool IsArrayBuffer() const {
-    //}
+    //V8_INLINE bool IsArrayBuffer() const;
     
-    //V8_INLINE bool IsArrayBufferView() const {
-    //}
+    //V8_INLINE bool IsArrayBufferView() const;
     
-    //V8_INLINE bool IsDate() const {
-    //}
+    //V8_INLINE bool IsDate() const;
 
-    V8_INLINE bool IsObject() const {
-        return jsValue_ && JS_IsObject(u_.value_);
-    }
+    bool IsObject() const;
 
-    V8_INLINE bool IsBigInt() const {
-        return jsValue_ && JS_VALUE_GET_TAG(u_.value_) == JS_TAG_BIG_INT;
-    }
+    bool IsBigInt() const;
 
-    V8_INLINE bool IsBoolean() const {
-        return jsValue_ && JS_IsBool(u_.value_);
-    }
+    bool IsBoolean() const;
 
-    V8_INLINE bool IsNumber() const {
-        return jsValue_ && JS_IsNumber(u_.value_);
-    }
+    bool IsNumber() const;
 
-    V8_INLINE bool IsExternal() const {
-        return jsValue_ && JS_VALUE_GET_TAG(u_.value_) == JS_TAG_EXTERNAL;
-    }
+    bool IsExternal() const;
 
     ValueStore u_;
     
@@ -430,11 +402,9 @@ public:
 
     class V8_EXPORT Scope {
     public:
-        explicit V8_INLINE Scope(Isolate* isolate) : isolate_(isolate) {
-        }
+        explicit V8_INLINE Scope(Isolate* isolate) : isolate_(isolate) { }
 
-        V8_INLINE ~Scope() {
-        }
+        V8_INLINE ~Scope() { }
 
         // Prevent copying of Scope objects.
         Scope(const Scope&) = delete;
@@ -469,13 +439,9 @@ private:
     
     std::vector<Local<FunctionTemplate>> function_templates_;
 
-    V8_INLINE Isolate() : current_context_(nullptr) {
-        runtime_ = JS_NewRuntime();
-    };
+    Isolate();
 
-    V8_INLINE ~Isolate() {
-        JS_FreeRuntime(runtime_);
-    };
+    ~Isolate();
 };
 
 class V8_EXPORT Context {
@@ -484,11 +450,7 @@ public:
         return Local<Context>(new Context(isolate));
     }
 
-    Local<Object> Global() {
-        Object* obj = new Object();
-        obj->u_.value_ = JS_GetGlobalObject(context_);
-        return Local<Object>(obj);
-    }
+    Local<Object> Global();
 
     V8_INLINE Isolate* GetIsolate() { return isolate_; }
 
@@ -507,18 +469,13 @@ public:
         Local<Context> prev_context_;
     };
 
-    V8_INLINE ~Context() {
-        JS_FreeContext(context_);
-    }
+    ~Context();
 
     Isolate* const isolate_;
 
     JSContext *context_;
 
-    V8_INLINE Context(Isolate* isolate) :isolate_(isolate) {
-        context_ = JS_NewContext(isolate->runtime_);
-        JS_SetContextOpaque(context_, isolate);
-    }
+    Context(Isolate* isolate);
 };
 
 
@@ -535,14 +492,10 @@ class V8_EXPORT Primitive : public Value { };
 
 class V8_EXPORT Number : public Primitive {
 public:
-    V8_INLINE double Value() const {
-        return JS_VALUE_GET_FLOAT64(u_.value_);
-    }
-    V8_INLINE static Local<Number> New(Isolate* isolate, double value) {
-        Number* ret = new Number();
-        ret->u_.value_ = JS_NewFloat64(isolate->GetCurrentContext()->context_, value);
-        return Local<Number>(ret);
-    }
+    double Value() const ;
+    
+    static Local<Number> New(Isolate* isolate, double value);
+    
     V8_INLINE static Number* Cast(v8::Value* obj) {
         return static_cast<Number*>(obj);
     }
@@ -550,25 +503,12 @@ public:
 
 class V8_EXPORT Integer : public Number {
 public:
-    V8_INLINE static Local<Integer> New(Isolate* isolate, int32_t value) {
-        Integer* ret = new Integer();
-        ret->u_.value_ = JS_MKVAL(JS_TAG_INT, value);
-        return Local<Integer>(ret);
-    }
-    V8_INLINE static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value) {
-        Integer* ret = new Integer();
-        ret->u_.value_ = JS_NewUint32(isolate->GetCurrentContext()->context_, value);;
-        return Local<Integer>(ret);
-    }
-    int64_t Value() const {
-        if (JS_VALUE_GET_TAG(u_.value_) == JS_TAG_INT) {
-            return JS_VALUE_GET_INT(u_.value_);
-        } else if (JS_VALUE_GET_TAG(u_.value_) == JS_TAG_FLOAT64) {
-            return (int64_t)JS_VALUE_GET_FLOAT64(u_.value_);
-        } else {
-            return 0;
-        }
-    }
+    static Local<Integer> New(Isolate* isolate, int32_t value);
+    
+    static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value);
+    
+    int64_t Value() const ;
+    
     V8_INLINE static Integer* Cast(v8::Value* obj) {
         return static_cast<Integer*>(obj);
     }
@@ -576,17 +516,12 @@ public:
 
 class V8_EXPORT Boolean : public Primitive {
 public:
-    V8_INLINE bool Value() const {
-        return JS_VALUE_GET_BOOL(u_.value_);
-    }
+    bool Value() const;
+    
     V8_INLINE static Boolean* Cast(v8::Value* obj) {
         return static_cast<Boolean*>(obj);
     }
-    V8_INLINE static Local<Boolean> New(Isolate* isolate, bool value) {
-        Boolean* ret = new Boolean();
-        ret->u_.value_ = JS_MKVAL(JS_TAG_BOOL, (value != 0));
-        return Local<Boolean>(ret);
-    }
+    static Local<Boolean> New(Isolate* isolate, bool value);
 };
 
 class V8_EXPORT Name : public Primitive {
@@ -649,22 +584,10 @@ public:
 
     class V8_EXPORT Utf8Value {
     public:
-        V8_INLINE Utf8Value(Isolate* isolate, Local<v8::Value> obj) {
-            auto context = isolate->GetCurrentContext();
-            Local<String> localStr = Local<String>::Cast(obj);
-            if (localStr->jsValue_) {
-                data_ = const_cast<char*>(JS_ToCStringLen(context->context_, &len_, localStr->u_.value_));
-                context_ = context->context_;
-            } else {
-                data_ = localStr->u_.str_.data_;
-                len_ = localStr->u_.str_.len_;
-            }
-        }
-        V8_INLINE ~Utf8Value() {
-            if (context_) {
-                JS_FreeCString(context_, data_);
-            }
-        }
+        Utf8Value(Isolate* isolate, Local<v8::Value> obj);
+        
+        ~Utf8Value();
+        
         char* operator*() { return data_; }
         const char* operator*() const { return data_; }
         int length() const { return len_; }
@@ -841,49 +764,49 @@ void ReturnValue<T>::Set(const Local<S> handle) {
     } else if (handle->jsValue_) {
         *pvalue_ = handle->u_.value_;
     } else {
-        *pvalue_ = JS_NewStringLen(context_, handle->u_.str_, handle->u_.len_);
+        *pvalue_ = JS_NewStringLen_(context_, handle->u_.str_, handle->u_.len_);
     }
 }
 
 template<typename T>
 void ReturnValue<T>::Set(double i) {
     static_assert(std::is_base_of<T, Number>::value, "type check");
-    *pvalue_ = JS_NewFloat64(context_, i);
+    *pvalue_ = JS_NewFloat64_(context_, i);
     
 }
 
 template<typename T>
 void ReturnValue<T>::Set(int32_t i) {
     static_assert(std::is_base_of<T, Integer>::value, "type check");
-    *pvalue_ = JS_NewInt32(context_, i);
+    *pvalue_ = JS_NewInt32_(context_, i);
 }
 
 template<typename T>
 void ReturnValue<T>::Set(uint32_t i) {
     static_assert(std::is_base_of<T, Integer>::value, "type check");
-    *pvalue_ = JS_NewUint32(context_, i);
+    *pvalue_ = JS_NewUint32_(context_, i);
 }
 
 template<typename T>
 void ReturnValue<T>::Set(bool value) {
     static_assert(std::is_base_of<T, Boolean>::value, "type check");
     if (value) {
-        *pvalue_ = JS_TRUE;
+        *pvalue_ = JS_True();
     } else {
-        *pvalue_ = JS_FALSE;
+        *pvalue_ = JS_False();
     }
 }
 
 template<typename T>
 void ReturnValue<T>::SetNull() {
     static_assert(std::is_base_of<T, Primitive>::value, "type check");
-    *pvalue_ = JS_NULL;
+    *pvalue_ = JS_Null();
 }
 
 template<typename T>
 void ReturnValue<T>::SetUndefined() {
     static_assert(std::is_base_of<T, Primitive>::value, "type check");
-    *pvalue_ = JS_UNDEFINED;
+    *pvalue_ = JS_Undefined();
 }
 
 template <typename T>
@@ -894,7 +817,7 @@ void ReturnValue<T>::Set(S* whatever) {
 
 template<typename T>
 Local<Value> FunctionCallbackInfo<T>::operator[](int i) const {
-    JSValue jsVal = JS_UNDEFINED;
+    JSValue jsVal = JS_Undefined();
     if (i >=0 && i < argc_) {
         jsVal = argv_[i];
     }
